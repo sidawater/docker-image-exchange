@@ -1,0 +1,761 @@
+/**
+ * 前端应用主逻辑
+ */
+
+class OAuthAdminApp {
+    constructor() {
+        this.user = null;
+        this.metrics = {};
+        this.activeTab = 'dashboard';
+        this.apiBase = '/api/v1';
+        
+        this.init();
+    }
+
+    init() {
+        // 检查当前页面
+        if (document.querySelector('.login-page')) {
+            this.initLoginPage();
+        } else {
+            this.initMainApp();
+        }
+    }
+
+    initLoginPage() {
+        const loginForm = document.getElementById('loginForm');
+        if (loginForm) {
+            loginForm.addEventListener('submit', (e) => this.handleLogin(e));
+        }
+
+        // 检查 URL 参数
+        const urlParams = new URLSearchParams(window.location.search);
+        const error = urlParams.get('error');
+        if (error) {
+            this.showError(error);
+        }
+    }
+
+    initMainApp() {
+        // 初始化 Vue 应用或直接操作 DOM
+        this.checkAuth();
+        this.loadMetrics();
+        this.setupEventListeners();
+    }
+
+    async checkAuth() {
+        try {
+            const response = await fetch(`${this.apiBase}/users/me`, {
+                headers: {
+                    'Authorization': `Bearer ${this.getToken()}`
+                }
+            });
+
+            if (!response.ok) {
+                window.location.href = '/static/login.html';
+                return;
+            }
+
+            this.user = await response.json();
+            this.updateUserInfo();
+        } catch (error) {
+            console.error('认证检查失败:', error);
+            window.location.href = '/static/login.html';
+        }
+    }
+
+    async handleLogin(event) {
+        event.preventDefault();
+        
+        const formData = new FormData(event.target);
+        const username = formData.get('username');
+        const password = formData.get('password');
+
+        try {
+            const response = await fetch(`${this.apiBase}/oauth/token`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    grant_type: 'password',
+                    client_id: 'admin_ui',
+                    username: username,
+                    password: password
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                this.setToken(data.access_token);
+                
+                // 重定向到原页面或首页
+                const urlParams = new URLSearchParams(window.location.search);
+                const redirectUri = urlParams.get('redirect_uri') || '/static/index.html';
+                window.location.href = redirectUri;
+            } else {
+                this.showError(data.error_description || '登录失败');
+            }
+        } catch (error) {
+            console.error('登录请求失败:', error);
+            this.showError('网络错误，请稍后重试');
+        }
+    }
+
+    async loadMetrics() {
+        try {
+            const response = await fetch(`${this.apiBase}/admin/metrics`, {
+                headers: {
+                    'Authorization': `Bearer ${this.getToken()}`
+                }
+            });
+
+            if (response.ok) {
+                this.metrics = await response.json();
+                this.updateMetricsDisplay();
+            }
+        } catch (error) {
+            console.error('加载指标失败:', error);
+        }
+    }
+
+    setActiveTab(tabName) {
+        this.activeTab = tabName;
+        this.updateTabDisplay();
+        this.loadTabData(tabName);
+    }
+
+    async loadTabData(tabName) {
+        switch (tabName) {
+            case 'users':
+                await this.loadUsers();
+                break;
+            case 'clients':
+                await this.loadClients();
+                break;
+            case 'sync':
+                await this.loadSyncStatus();
+                break;
+            case 'metrics':
+                await this.loadMetrics();
+                break;
+        }
+    }
+
+    async loadUsers() {
+        try {
+            const response = await fetch(`${this.apiBase}/users?limit=50`, {
+                headers: {
+                    'Authorization': `Bearer ${this.getToken()}`
+                }
+            });
+
+            if (response.ok) {
+                const users = await response.json();
+                this.renderUsersTable(users);
+            }
+        } catch (error) {
+            console.error('加载用户列表失败:', error);
+        }
+    }
+
+    async loadClients() {
+        try {
+            const response = await fetch(`${this.apiBase}/clients`, {
+                headers: {
+                    'Authorization': `Bearer ${this.getToken()}`
+                }
+            });
+
+            if (response.ok) {
+                const clients = await response.json();
+                this.renderClientsTable(clients);
+            }
+        } catch (error) {
+            console.error('加载客户端列表失败:', error);
+        }
+    }
+
+    async loadSyncStatus() {
+        try {
+            const response = await fetch(`${this.apiBase}/admin/sync/status`, {
+                headers: {
+                    'Authorization': `Bearer ${this.getToken()}`
+                }
+            });
+
+            if (response.ok) {
+                const syncStatus = await response.json();
+                this.renderSyncStatus(syncStatus);
+            }
+        } catch (error) {
+            console.error('加载同步状态失败:', error);
+        }
+    }
+
+    renderUsersTable(users) {
+        // 实现用户表格渲染
+        console.log('渲染用户表格:', users);
+    }
+
+    renderClientsTable(clients) {
+        // 实现客户端表格渲染
+        console.log('渲染客户端表格:', clients);
+    }
+
+    renderSyncStatus(syncStatus) {
+        // 实现同步状态渲染
+        console.log('渲染同步状态:', syncStatus);
+    }
+
+    updateUserInfo() {
+        const userInfoElement = document.querySelector('.user-info span');
+        if (userInfoElement && this.user) {
+            userInfoElement.textContent = this.user.username;
+        }
+    }
+
+    updateMetricsDisplay() {
+        // 更新指标显示
+        const statsGrid = document.querySelector('.stats-grid');
+        if (statsGrid && this.metrics.user_metrics) {
+            // 更新统计卡片
+            console.log('更新指标显示:', this.metrics);
+        }
+    }
+
+    updateTabDisplay() {
+        // 更新标签页显示
+        const tabs = document.querySelectorAll('.tab-content');
+        tabs.forEach(tab => {
+            tab.style.display = 'none';
+        });
+        
+        const activeTab = document.querySelector(`[data-tab="${this.activeTab}"]`);
+        if (activeTab) {
+            activeTab.style.display = 'block';
+        }
+    }
+
+    setupEventListeners() {
+        // 设置侧边栏点击事件
+        const sidebarLinks = document.querySelectorAll('.sidebar a');
+        sidebarLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const tab = link.getAttribute('href').substring(1);
+                this.setActiveTab(tab);
+            });
+        });
+
+        // 退出按钮
+        const logoutBtn = document.querySelector('.user-info button');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', () => this.logout());
+        }
+    }
+
+    logout() {
+        this.removeToken();
+        window.location.href = '/static/login.html';
+    }
+
+    getToken() {
+        return localStorage.getItem('access_token');
+    }
+
+    setToken(token) {
+        localStorage.setItem('access_token', token);
+    }
+
+    removeToken() {
+        localStorage.removeItem('access_token');
+    }
+
+    showError(message) {
+        const errorElement = document.getElementById('errorMessage');
+        if (errorElement) {
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+        }
+    }
+
+    hideError() {
+        const errorElement = document.getElementById('errorMessage');
+        if (errorElement) {
+            errorElement.style.display = 'none';
+        }
+    }
+}
+
+// 初始化应用
+document.addEventListener('DOMContentLoaded', () => {
+    window.app = new OAuthAdminApp();
+});
+
+// API 工具函数
+class ApiClient {
+    constructor(baseUrl = '/api/v1') {
+        this.baseUrl = baseUrl;
+    }
+
+    async request(endpoint, options = {}) {
+        const url = `${this.baseUrl}${endpoint}`;
+        const token = localStorage.getItem('access_token');
+        
+        const config = {
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            },
+            ...options
+        };
+
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+
+        try {
+            const response = await fetch(url, config);
+            
+            if (response.status === 401) {
+                // 未授权，跳转到登录页
+                localStorage.removeItem('access_token');
+                window.location.href = '/static/login.html';
+                return;
+            }
+
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({}));
+                throw new Error(error.error_description || `HTTP ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('API 请求失败:', error);
+            throw error;
+        }
+    }
+
+    get(endpoint, options = {}) {
+        return this.request(endpoint, { ...options, method: 'GET' });
+    }
+
+    post(endpoint, data = {}, options = {}) {
+        return this.request(endpoint, {
+            ...options,
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+    }
+
+    put(endpoint, data = {}, options = {}) {
+        return this.request(endpoint, {
+            ...options,
+            method: 'PUT',
+            body: JSON.stringify(data)
+        });
+    }
+
+    delete(endpoint, options = {}) {
+        return this.request(endpoint, { ...options, method: 'DELETE' });
+    }
+}
+
+// 创建全局 API 客户端
+window.api = new ApiClient();
+
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OAuth2 + LDAP 认证服务管理界面</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <header class="header">
+            <h1>OAuth2 + LDAP 认证服务</h1>
+            <div class="user-info" v-if="user">
+                <span>{{ user.username }}</span>
+                <button @click="logout">退出</button>
+            </div>
+        </header>
+        
+        <main class="main">
+            <nav class="sidebar">
+                <ul>
+                    <li><a href="#dashboard" @click="setActiveTab('dashboard')">仪表板</a></li>
+                    <li><a href="#users" @click="setActiveTab('users')">用户管理</a></li>
+                    <li><a href="#clients" @click="setActiveTab('clients')">客户端管理</a></li>
+                    <li><a href="#sync" @click="setActiveTab('sync')">LDAP 同步</a></li>
+                    <li><a href="#metrics" @click="setActiveTab('metrics')">系统指标</a></li>
+                </ul>
+            </nav>
+            
+            <div class="content">
+                <div v-if="activeTab === 'dashboard'" class="tab-content">
+                    <h2>系统概览</h2>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <h3>总用户数</h3>
+                            <p class="stat-number">{{ metrics.user_metrics.total_users }}</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3>活跃客户端</h3>
+                            <p class="stat-number">{{ metrics.client_metrics.active_clients }}</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3>活跃令牌</h3>
+                            <p class="stat-number">{{ metrics.token_metrics.active_tokens }}</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div v-if="activeTab === 'users'" class="tab-content">
+                    <h2>用户管理</h2>
+                    <!-- 用户管理界面 -->
+                </div>
+                
+                <div v-if="activeTab === 'clients'" class="tab-content">
+                    <h2>客户端管理</h2>
+                    <!-- 客户端管理界面 -->
+                </div>
+                
+                <div v-if="activeTab === 'sync'" class="tab-content">
+                    <h2>LDAP 同步</h2>
+                    <!-- 同步管理界面 -->
+                </div>
+                
+                <div v-if="activeTab === 'metrics'" class="tab-content">
+                    <h2>系统指标</h2>
+                    <!-- 系统指标界面 -->
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>
+/* 基础样式 */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background-color: #f5f5f5;
+}
+
+/* 登录页面样式 */
+.login-page {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.login-container {
+    width: 100%;
+    max-width: 400px;
+    padding: 20px;
+}
+
+.login-card {
+    background: white;
+    padding: 2rem;
+    border-radius: 10px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.login-card h1 {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    color: #333;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 1rem;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.login-button {
+    width: 100%;
+    padding: 0.75rem;
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.login-button:hover {
+    background: #5a6fd8;
+}
+
+.error-message {
+    background: #fee;
+    color: #c33;
+    padding: 0.75rem;
+    border-radius: 5px;
+    margin-top: 1rem;
+    text-align: center;
+}
+
+.login-footer {
+    text-align: center;
+    margin-top: 1rem;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+/* 主应用样式 */
+.header {
+    background: white;
+    padding: 1rem 2rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.header h1 {
+    color: #333;
+    font-size: 1.5rem;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.user-info button {
+    padding: 0.5rem 1rem;
+    background: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.main {
+    display: flex;
+    min-height: calc(100vh - 80px);
+}
+
+.sidebar {
+    width: 250px;
+    background: white;
+    padding: 1rem 0;
+    box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar ul {
+    list-style: none;
+}
+
+.sidebar li a {
+    display: block;
+    padding: 0.75rem 1.5rem;
+    color: #333;
+    text-decoration: none;
+    transition: background 0.3s;
+}
+
+.sidebar li a:hover,
+.sidebar li a.active {
+    background: #f8f9fa;
+    color: #667eea;
+}
+
+.content {
+    flex: 1;
+    padding: 2rem;
+    background: #f8f9fa;
+}
+
+.tab-content h2 {
+    margin-bottom: 1.5rem;
+    color: #333;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    text-align: center;
+}
+
+.stat-card h3 {
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+}
+
+.stat-number {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #333;
+}
+
+/* 表格样式 */
+.table {
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.table table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table th,
+.table td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+}
+
+.table th {
+    background: #f8f9fa;
+    font-weight: 600;
+    color: #333;
+}
+
+.table tr:hover {
+    background: #f8f9fa;
+}
+
+/* 按钮样式 */
+.btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.3s;
+}
+
+.btn-primary {
+    background: #667eea;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #5a6fd8;
+}
+
+.btn-danger {
+    background: #dc3545;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #c82333;
+}
+
+.btn-success {
+    background: #28a745;
+    color: white;
+}
+
+.btn-success:hover {
+    background: #218838;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .main {
+        flex-direction: column;
+    }
+    
+    .sidebar {
+        width: 100%;
+    }
+    
+    .content {
+        padding: 1rem;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - OAuth2 认证服务</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="login-page">
+    <div class="login-container">
+        <div class="login-card">
+            <h1>登录到系统</h1>
+            
+            <form id="loginForm" class="login-form">
+                <div class="form-group">
+                    <label for="username">用户名</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">密码</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                
+                <button type="submit" class="login-button">登录</button>
+            </form>
+            
+            <div id="errorMessage" class="error-message" style="display: none;"></div>
+            
+            <div class="login-footer">
+                <p>使用您的 LDAP 凭证或本地账户登录</p>
+            </div>
+        </div>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>
+
