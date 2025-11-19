@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "doc-upload"
+version = "0.1.0"
+description = "Document upload service (FastAPI + SQLAlchemy)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [ { name = "Solgeo Yu", email = "solgeojyyu@hkjc.org.hk" } ]
+
+
+dependencies = [
+  "fastapi",
+  "uvicorn[standard]>",
+  "sqlalchemy>=2.0",
+  "alembic>",
+  "psycopg2-binary>",
+  "python-dotenv",
+  "pydantic",
+  "httpx",
+  "minio"
+]
+
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7.0",
+  "pytest-asyncio>=0.20",
+  "black>=23.0",
+  "isort>=5.0",
+  "ruff>=0.20",
+  "mypy>=0.991",
+  "pre-commit>=3.0"
+]
+
+[tool.uv]
+index-url = "http://10.1.0.4:3141/root/pypi/+simple/"
+
+[tool.setuptools]
+packages = { find = {} }
+
+[tool.black]
+line-length = 88
+
+[tool.isort]
+profile = "black"
+
+[tool.ruff]
+line-length = 88
+select = ["E", "F", "W", "I", "B"]
+
+[tool.mypy]
+python_version = 3.10
+ignore_missing_imports = true
+
+[tool.coverage.run]
+branch = true
+source = ["app", "core"]
