@@ -1,3 +1,0 @@
-"""
-for managemanet website
-"""
